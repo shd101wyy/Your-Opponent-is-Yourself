@@ -89,6 +89,15 @@ canvas.addEventListener("mousedown",
 	{	var mousePos = getMousePos(canvas, evt);
 		var message = 'Mouse position: ' + mousePos.x + ',' + mousePos.y;
 		console.log(message);
+		if(player.energy < 2) // no energy to shoot
+		{
+			return;
+		}
+		else
+		{
+			player.energy -= 5; // decrease energy
+			if(player.energy < 0) player.energy = 0;
+		}
 		// create new bullet
 		var bullet = new Bullet(player.x, player.y, mousePos.x, mousePos.y);
 		BULLETS.push(bullet);
@@ -148,8 +157,8 @@ var Player = function()
 
 
 
-	this.hits = 0; 
-	this.energy = 50; // can only fly 5 seconds energy,
+	this.hp = 5; 
+	this.energy = 50; //energy for fly
 	this.max_energy = 50;
 
 	this.draw = function()
@@ -159,7 +168,7 @@ var Player = function()
 
 		// draw hp
 		context.font="20px Arial";
-		context.fillText("HITS: " + this.hits + " ENERGY: " + this.energy, this.x, this.y - 10);
+		context.fillText("HP: " + this.hp + " ENERGY: " + Math.floor(this.energy), this.x, this.y - 10);
 	}
 
 	this.update_move_right = function()
@@ -218,8 +227,8 @@ var Player = function()
 		}
 
 		this.y += 5;
-		if(this.y >= canvas.height)
-			this.y = canvas.height - this.height;
+		if(this.y >= this.ground)
+			this.y = this.ground;
 	}
 
 	this.update_jump = function()
@@ -239,7 +248,14 @@ var Player = function()
 	{
 		// 消耗energy
 		if(this.y != this.ground)
+		{
 			this.energy -= 0.25;
+			if(this.energy < 0)
+			{
+				this.energy = 0;
+				this.jump = true;
+			}
+		}
 		else
 		{
 			if(this.energy < this.max_energy)
@@ -268,7 +284,9 @@ var Enemy = function()
 	this.move_up = false;
 	this.move_down = false;
 
-	this.hits = 0;
+	this.hp = 5;
+	this.energy = 50; //energy for fly
+	this.max_energy = 50;
 
 	// save actions
 	// [[time, "jump"], [time, "shoot", x, y, target_x, target_y]];
@@ -283,32 +301,67 @@ var Enemy = function()
 
 		// draw hp
 		context.font="20px Arial";
-		context.fillText("HITS: " + this.hits, this.x, this.y - 10);
+		context.fillText("HP: " + this.hp, this.x, this.y - 10);
 	}
 
 	this.update_move_right = function()
 	{
+		// check energy
+		if(this.energy <= 0)
+		{
+			this.energy = 0;
+			this.move_right = false;
+			this.jump = true; // fall down
+			return;
+		}
+
 		this.x += 5;
 		if(this.x >= canvas.width)
 			this.x = canvas.width - this.width
 	}
 	this.update_move_left = function()
 	{
+		// check energy
+		if(this.energy <= 0)
+		{
+			this.energy = 0;
+			this.move_left = false;
+			this.jump = true; // fall down
+			return;
+		}
 		this.x -= 5;
 		if(this.x <=0 )
 			this.x = 0;
 	}
 	this.update_move_up = function()
 	{
+		// check energy
+		if(this.energy <= 0)
+		{
+			this.energy = 0;
+			this.move_up = false;
+			this.jump = true; // fall down
+			return;
+		}
+
 		this.y -= 5;
 		if(this.y <= 0)
 			this.y = 0;
 	}
 	this.update_move_down = function()
 	{
+		// check energy
+		if(this.energy <= 0)
+		{
+			this.energy = 0;
+			this.move_down = false;
+			this.jump = true; // fall down
+			return;
+		}
+
 		this.y += 5;
-		if(this.y >= canvas.height)
-			this.y = canvas.height - this.height;
+		if(this.y >= this.ground)
+			this.y = this.ground;
 	}
 
 	this.update_jump = function()
@@ -321,6 +374,25 @@ var Enemy = function()
 			this.y = this.ground;
 			this.v_y = 0;
 			return;
+		}
+	}
+
+	this.check_energy = function()
+	{
+		// 消耗energy
+		if(this.y != this.ground)
+		{
+			this.energy -= 0.25;
+			if(this.energy < 0)
+			{
+				this.energy = 0;
+				this.jump = true;
+			}
+		}
+		else
+		{
+			if(this.energy < this.max_energy)
+				this.energy += 0.25;
 		}
 	}
 }
@@ -344,142 +416,212 @@ function clearScreen()
 	canvas.width = canvas.width;
 }
 
+
 player = new Player();
 enemy = new Enemy();
 var TIMER = 0; // used to save elapsed time
-var timer = new Timer(10000); // ms
 var WAIT_TIME = 1000;
-function beginGame() 
+
+
+
+var Game = function()
 {
-	TIMER += 25;
-	clearScreen(); // clear screen
-
-	if(TIMER % 1000 === 0)
+	// game over
+	var game_over = function()
 	{
-		console.log(TIMER / 1000 + "s");
+
+		clearInterval(game_interval);
+		clearScreen();
+		context.font="120px Arial";
+		context.fillText("Game Over", 100, canvas.height/2);
 	}
-
-	// check energy
-	player.check_energy();
-
-	if(player.jump === true) // check player jump
+	var enemy_hp = enemy.hp;
+	var level = 1;
+	var remaining_time = 20*1000;
+	var timer = new Timer(remaining_time); // ms
+	var draw_level = function()
 	{
-		console.log("Player Jump");
-		player.update_jump();
+		context.font="30px Arial";
+		var text = "Level: " + level;
+		context.fillText(text , 40, 70);
 	}
-	if(player.move_right === true) // player move right
-		player.update_move_right();
-	if(player.move_left === true) // player move right
-		player.update_move_left();
-	if(player.move_up === true) // player move up
-		player.update_move_up();
-	if(player.move_down === true) // player move down
-		player.update_move_down();
-
-	if(enemy.jump === true) // check enemy jump
+	var level_up = function()
 	{
-		console.log("@Enemy Jump");
-		enemy.update_jump();
-	}
-	if(enemy.move_right === true) // enemy move right
-		enemy.update_move_right();
-	if(enemy.move_left === true) // enemy move right
-		enemy.update_move_left();
-	if(enemy.move_up === true) // enemy move up
-		enemy.update_move_up();
-	if(enemy.move_down === true) // enemy move down
-		enemy.update_move_down();
 
-	// draw timer
-	timer.t -= 25;
-	if(timer.t <= 0) // game over
-	{
-		timer.t = 0;
-		timer.draw();
-		// clearInterval(game_interval);
-	}
-	timer.draw();
-
-	// draw player
-	player.draw();
-	// draw enemy
-	enemy.draw();
-
-	// check enemy action
-	for(var i = 0; i < enemy.actions.length; i++)
-	{
-		if(enemy.actions[i][0] > TIMER) break;
-		if(enemy.actions[i][0] === TIMER) // same to timer
+		clearInterval(game_interval); // pause game
+		clearScreen();
+		TIMER = 0; // clear timer
+		BULLETS = []; // clear bullets
+		level ++; // increase level;
+		remaining_time -= 100; // decrease remaining time
+		WAIT_TIME -= 500; // decrease lag time
+		if(WAIT_TIME <= 0)
 		{
-			var action = enemy.actions[i];
-			if(action[1] === "jump") // enemy jump
-			{
-				console.log("ENEMY JUMP");
-				enemy.jump = true;
-				enemy.v_y = -50;
-				enemy.update_jump();
-			}
-			if(action[1] === "shoot") // enemy shoot
-			{
-				// create bullet
-				var bullet = new Bullet(action[2], action[3], action[4], action[5]);
-				BULLETS.push(bullet);
-			}
-			if(action[1] === "move-left") // enemy move left
-				enemy.move_left = true;
-			if(action[1] === "stop-move-left") // enemy stop move left
-				enemy.move_left = false;
-			if(action[1] === "move-right") // enemy move right
-				enemy.move_right = true;
-			if(action[1] === "stop-move-right") // enemy stop move right
-				enemy.move_right = false;
-			if(action[1] === "move-up") // enemy move up
-				enemy.move_up = true;
-			if(action[1] === "stop-move-up") // enemy stop move up
-				enemy.move_up = false;
-			if(action[1] === "move-down") // enemy move down
-				enemy.move_down = true;
-			if(action[1] === "stop-move-down") // enemy stop move down
-				enemy.move_down = false;
+			WAIT_TIME = 500;
 		}
-	}
-
-	// draw bullets
-	for(var i = 0; i < BULLETS.length; i++)
-	{
-		var bullet = BULLETS[i];
-		// update bullet position
-		bullet.update();
+		if(remaining_time <= 8)
+		{
+			remaining_time = 8;
+		}
+		player = new Player();
+		enemy = new Enemy();
+		timer = new Timer(remaining_time); // ms
+		enemy_hp += 2; // increase enemy hp
+		enemy.hp = enemy_hp;
 		
-		// 检查击中
-		if(bullet.x >= enemy.x && bullet.x <= enemy.x + enemy.width
-			&& bullet.y >= enemy.y && bullet.y <= enemy.y + enemy.height)
+		clearScreen();
+		context.font="120px Arial";
+		context.fillText("Level Up", 100, canvas.height/2);
+
+		setTimeout(function()
 		{
-			BULLETS.splice(i, 1); // delete bullet
-			player.hits++;
-			console.log("You hit by yourself");
-			continue;
-		}
-		if(bullet.x >= player.x && bullet.x <= player.x + player.width
-			&& bullet.y >= player.y && bullet.y <= player.y + player.height)
+			game_interval = setInterval(game.beginGame, 25)
+		}, 1200)
+	}
+	this.beginGame = function() 
+	{
+		TIMER += 25;
+		clearScreen(); // clear screen
+
+		if(TIMER % 1000 === 0)
 		{
-			BULLETS.splice(i, 1); // delete bullet
-			enemy.hits ++ ;
-			console.log("You are hit by yourself");
-			continue;
+			console.log(TIMER / 1000 + "s");
 		}
 
-		BULLETS[i].draw();
-		if(BULLETS[i].x >= canvas.width || BULLETS[i].y >= canvas.height
-			|| BULLETS[i].x <=0 || BULLETS[i].y <=0)
+		// check energy
+		player.check_energy();
+		enemy.check_energy();
+
+		if(player.jump === true) // check player jump
 		{
-			console.log("delete bullet");
-			BULLETS.splice(i, 1);
+			console.log("Player Jump");
+			player.update_jump();
 		}
-	}
+		if(player.move_right === true) // player move right
+			player.update_move_right();
+		if(player.move_left === true) // player move right
+			player.update_move_left();
+		if(player.move_up === true) // player move up
+			player.update_move_up();
+		if(player.move_down === true) // player move down
+			player.update_move_down();
+
+		if(enemy.jump === true) // check enemy jump
+		{
+			console.log("@Enemy Jump");
+			enemy.update_jump();
+		}
+		if(enemy.move_right === true) // enemy move right
+			enemy.update_move_right();
+		if(enemy.move_left === true) // enemy move right
+			enemy.update_move_left();
+		if(enemy.move_up === true) // enemy move up
+			enemy.update_move_up();
+		if(enemy.move_down === true) // enemy move down
+			enemy.update_move_down();
+
+		// draw timer
+		timer.t -= 25;
+		if(timer.t <= 0) // game over
+		{
+			timer.t = 0;
+			timer.draw();
+			game_over(); // time is up so game over
+		}
+		// draw timer and level
+		timer.draw();
+		draw_level();
+
+		// draw player
+		player.draw();
+		// draw enemy
+		enemy.draw();
+
+		// check enemy action
+		for(var i = 0; i < enemy.actions.length; i++)
+		{
+			if(enemy.actions[i][0] > TIMER) break;
+			if(enemy.actions[i][0] === TIMER) // same to timer
+			{
+				var action = enemy.actions[i];
+				if(action[1] === "jump") // enemy jump
+				{
+					console.log("ENEMY JUMP");
+					enemy.jump = true;
+					enemy.v_y = -50;
+					enemy.update_jump();
+				}
+				if(action[1] === "shoot") // enemy shoot
+				{
+					// create bullet
+					var bullet = new Bullet(action[2], action[3], action[4], action[5]);
+					BULLETS.push(bullet);
+				}
+				if(action[1] === "move-left") // enemy move left
+					enemy.move_left = true;
+				if(action[1] === "stop-move-left") // enemy stop move left
+					enemy.move_left = false;
+				if(action[1] === "move-right") // enemy move right
+					enemy.move_right = true;
+				if(action[1] === "stop-move-right") // enemy stop move right
+					enemy.move_right = false;
+				if(action[1] === "move-up") // enemy move up
+					enemy.move_up = true;
+				if(action[1] === "stop-move-up") // enemy stop move up
+					enemy.move_up = false;
+				if(action[1] === "move-down") // enemy move down
+					enemy.move_down = true;
+				if(action[1] === "stop-move-down") // enemy stop move down
+					enemy.move_down = false;
+			}
+		}
+
+		// draw bullets
+		for(var i = 0; i < BULLETS.length; i++)
+		{
+			var bullet = BULLETS[i];
+			// update bullet position
+			bullet.update();
+			
+			// 检查击中
+			if(bullet.x >= enemy.x && bullet.x <= enemy.x + enemy.width
+				&& bullet.y >= enemy.y && bullet.y <= enemy.y + enemy.height)
+			{
+				BULLETS.splice(i, 1); // delete bullet
+				enemy.hp --;
+				if(enemy.hp <= 0)
+				{
+					level_up();
+				}
+				console.log("You hit yourself");
+				continue;
+			}
+			if(bullet.x >= player.x && bullet.x <= player.x + player.width
+				&& bullet.y >= player.y && bullet.y <= player.y + player.height)
+			{
+				BULLETS.splice(i, 1); // delete bullet
+				player.hp -- ;
+				console.log("You are hit by yourself");
+				if(player.hp <= 0)
+				{
+					game_over();
+				}
+				continue;
+			}
+
+			BULLETS[i].draw();
+			if(BULLETS[i].x >= canvas.width || BULLETS[i].y >= canvas.height
+				|| BULLETS[i].x <=0 || BULLETS[i].y <=0)
+			{
+				console.log("delete bullet");
+				BULLETS.splice(i, 1);
+			}
+		}
+	};
 }
 
-game_interval = setInterval(beginGame, 25)
+var game = new Game();
+game_interval = setInterval(game.beginGame, 25)
 
 
 
