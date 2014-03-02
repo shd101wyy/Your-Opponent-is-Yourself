@@ -649,7 +649,7 @@ var Game = function()
 }
 
 var game = new Game();
-alert("How to Play:\n\nW A S D: fly. cost energy\nSpace: jump. no energy required\nMouse Click: Shoot\n")
+alert("How to Play:\n\nW A S D: fly. cost energy\nSpace: jump. no energy required\nMouse Click: Shoot\n\nTry to destroy the squre on the right side")
 game_interval = setInterval(game.beginGame, 25)
 
 
