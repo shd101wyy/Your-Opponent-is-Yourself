@@ -581,6 +581,8 @@ var Game = function()
 				}
 				if(action[1] === "shoot") // enemy shoot
 				{
+					enemy.energy -= 5;
+					if(enemy.energy<0) enemy.energy = 0;
 					// create bullet
 					var bullet = new Bullet(action[2], action[3], action[4], action[5]);
 					BULLETS.push(bullet);
