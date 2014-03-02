@@ -103,7 +103,7 @@ canvas.addEventListener("mousedown",
 		BULLETS.push(bullet);
 
 		// save players action
-		enemy.actions.push([TIMER + WAIT_TIME, "shoot", canvas.width/2 + (canvas.width/2 - player.x) - enemy.width, player.y, mousePos.x - canvas.width/2, mousePos.y])
+		enemy.actions.push([TIMER + WAIT_TIME, "shoot", canvas.width/2 + (canvas.width/2 - player.x) - enemy.width, player.y, canvas.width - mousePos.x, mousePos.y])
 	
 	})
 
@@ -113,9 +113,9 @@ var Bullet = function(x, y, target_x, target_y)
 	var gun_shot_sound = new Audio("./gun-shot.mp3") //document.getElementById("gun-shot-sound")
 	gun_shot_sound.play();
 
-	this.x = target_x>x? x + 60:x;
+	this.x = target_x>x? x + player.width : x;
 	this.y = y + 10;
-	this.v_x = target_x>x?8:-8;
+	this.v_x = target_x>x? 8:-8;
 
 	// determin v_y
 	var t = (target_x - x) / this.v_x;
@@ -161,8 +161,11 @@ var Player = function()
 	this.energy = 50; //energy for fly
 	this.max_energy = 50;
 
+	this.fire_count == 0;
+
 	this.draw = function()
 	{
+		// draw player
 		context.rect(this.x, this.y, this.width, this.height);
 		context.stroke();
 
@@ -182,9 +185,12 @@ var Player = function()
 			return;
 		}
 
+		if(this.x + this.width >= canvas.width/2 - 10)
+		{
+			this.x = canvas.width/2 - this.width;
+			return;
+		}
 		this.x += 5;
-		if(this.x >= canvas.width)
-			this.x = canvas.width - this.width
 	}
 	this.update_move_left = function()
 	{
@@ -247,7 +253,7 @@ var Player = function()
 	this.check_energy = function()
 	{
 		// 消耗energy
-		if(this.y != this.ground)
+		if(this.y != this.ground && this.jump === false)
 		{
 			this.energy -= 0.25;
 			if(this.energy < 0)
@@ -293,6 +299,7 @@ var Enemy = function()
 	// [time, "move-left"], [time, "move-right"], [time, "move-up"], [time, "move-down"];
 	// [time, "stop-move-left"]
 	this.actions = []; 
+	this.actions_start = 0;
 
 	this.draw = function()
 	{
@@ -328,6 +335,10 @@ var Enemy = function()
 			this.move_left = false;
 			this.jump = true; // fall down
 			return;
+		}
+		if(this.x <= canvas.width / 2)
+		{
+			this.x = canvas.width / 2 + 1;
 		}
 		this.x -= 5;
 		if(this.x <=0 )
@@ -380,7 +391,7 @@ var Enemy = function()
 	this.check_energy = function()
 	{
 		// 消耗energy
-		if(this.y != this.ground)
+		if(this.y != this.ground && this.jump === false) 
 		{
 			this.energy -= 0.25;
 			if(this.energy < 0)
@@ -430,10 +441,22 @@ var Game = function()
 	var game_over = function()
 	{
 
-		clearInterval(game_interval);
 		clearScreen();
+		clearInterval(game_interval);
 		context.font="120px Arial";
-		context.fillText("Game Over", 100, canvas.height/2);
+		context.fillText("Game Over", 100, canvas.height/2 * 0.55);
+		context.font="60px Arial";
+		context.fillText("Refresh page to restart", 100, canvas.height/2);
+
+		/*
+		var restart_button = new Image();
+		restart_button.src = "./restart.png";
+		restart_button.onload = function()
+		{
+			context.drawImage(restart_button, 80, 250, 200, 200);
+		}
+		*/
+
 	}
 	var enemy_hp = enemy.hp;
 	var level = 1;
@@ -524,6 +547,7 @@ var Game = function()
 		timer.t -= 25;
 		if(timer.t <= 0) // game over
 		{
+			clearScreen();
 			timer.t = 0;
 			timer.draw();
 			game_over(); // time is up so game over
@@ -538,9 +562,13 @@ var Game = function()
 		enemy.draw();
 
 		// check enemy action
-		for(var i = 0; i < enemy.actions.length; i++)
+		for(var i = enemy.actions_start; i < enemy.actions.length; i++)
 		{
-			if(enemy.actions[i][0] > TIMER) break;
+			if(enemy.actions[i][0] > TIMER)
+			{
+				enemy.actions_start = i;
+				break;
+			} 
 			if(enemy.actions[i][0] === TIMER) // same to timer
 			{
 				var action = enemy.actions[i];
@@ -621,6 +649,7 @@ var Game = function()
 }
 
 var game = new Game();
+alert("How to Play:\n\nW A S D: fly. cost energy\nSpace: jump. no energy required\nMouse Click: Shoot\n")
 game_interval = setInterval(game.beginGame, 25)
 
 
